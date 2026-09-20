@@ -1,0 +1,30 @@
+FROM node:22-alpine AS build
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+# Scripts must run here: esbuild places its platform binary from a postinstall.
+RUN pnpm install --frozen-lockfile --filter @devfest/api...
+COPY packages/shared packages/shared
+COPY apps/api apps/api
+RUN pnpm --filter @devfest/api build
+
+FROM node:22-alpine AS deps
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+RUN pnpm install --frozen-lockfile --prod --filter @devfest/api... --ignore-scripts
+
+FROM node:22-alpine
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY apps/api/package.json ./apps/api/
+USER node
+EXPOSE 3010
+CMD ["node", "apps/api/dist/server.js"]

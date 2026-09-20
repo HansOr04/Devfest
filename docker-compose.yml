@@ -1,0 +1,68 @@
+# Production stack for one VPS: Caddy (TLS + static + proxy), API, Postgres.
+#   cp .env.example .env   # edit DOMAIN, passwords, ADMIN_TOKEN
+#   docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    command: >
+      postgres -c max_connections=100 -c shared_buffers=256MB -c synchronous_commit=off
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3010
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      SNAPSHOT_INTERVAL_MS: ${SNAPSHOT_INTERVAL_MS:-2000}
+      CORS_ORIGIN: https://${DOMAIN}
+    depends_on:
+      db:
+        condition: service_healthy
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+      args:
+        VITE_DISABLE_SW: ${VITE_DISABLE_SW:-}
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

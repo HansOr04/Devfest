@@ -1,0 +1,44 @@
+{
+  # Plenty of headroom for thousands of phones on the same wifi
+  servers {
+    protocols h1 h2 h3
+  }
+}
+
+{$DOMAIN}
+
+encode zstd gzip
+
+# WebSocket for the screens
+@ws path /ws
+reverse_proxy @ws api:3010
+
+# API
+handle /api/* {
+  reverse_proxy api:3010 {
+    header_up X-Real-IP {remote_host}
+  }
+}
+
+# Static SPA
+handle {
+  root * /srv
+
+  # Hashed build assets and sticker art never change under the same URL, so phones
+  # that come back hours later re-use them instead of hitting the venue wifi again.
+  @immutable path /assets/* /stickers/* /brand/*
+  header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+  # The shell and the worker must be revalidated, or a deploy would never reach anyone.
+  @shell path /index.html / /sw.js
+  header @shell Cache-Control "no-cache"
+
+  try_files {path} /index.html
+  file_server
+}
+
+header {
+  X-Content-Type-Options nosniff
+  Referrer-Policy strict-origin-when-cross-origin
+  -Server
+}

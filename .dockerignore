@@ -1,0 +1,17 @@
+# Host node_modules are pnpm symlink farms pointing at host paths. Copying them into
+# the image breaks the clean install done inside the build stage.
+**/node_modules
+**/dist
+**/.vite
+
+.git
+.env
+.env.*
+!.env.example
+
+# Sticker originals are ~1 MB each and only feed the optimizer, never the image.
+apps/web/assets
+
+**/*.log
+.DS_Store
+.claude

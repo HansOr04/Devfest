@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: devfest
+      POSTGRES_PASSWORD: devfest
+      POSTGRES_DB: devfest
+    # 5432 is often taken by another project's database on the dev machine.
+    ports:
+      - "5442:5432"
+    volumes:
+      - devfest_dev_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devfest"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  devfest_dev_pg:

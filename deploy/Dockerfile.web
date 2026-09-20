@@ -1,0 +1,19 @@
+FROM node:22-alpine AS build
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/web/package.json apps/web/
+# Scripts must run here: esbuild (via Vite) places its platform binary from a postinstall.
+RUN pnpm install --frozen-lockfile --filter @devfest/web...
+COPY packages/shared packages/shared
+COPY apps/web apps/web
+ARG VITE_DISABLE_SW=""
+ENV VITE_DISABLE_SW=$VITE_DISABLE_SW
+RUN pnpm --filter @devfest/web build
+
+# Caddy serves the static bundle, terminates TLS and proxies /api and /ws to the API.
+FROM caddy:2-alpine
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/apps/web/dist /srv
+EXPOSE 80 443
