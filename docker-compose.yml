@@ -30,7 +30,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
       SNAPSHOT_INTERVAL_MS: ${SNAPSHOT_INTERVAL_MS:-2000}
-      CORS_ORIGIN: https://${DOMAIN}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
     depends_on:
       db:
         condition: service_healthy

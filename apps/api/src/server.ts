@@ -2,6 +2,10 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import websocket from "@fastify/websocket";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { env } from "./env.ts";
 import { migrate, sql } from "./db.ts";
 import { startSnapshotLoop } from "./snapshot.ts";
@@ -36,6 +40,27 @@ await app.register(websocket, { options: { maxPayload: 1024 } });
 await app.register(publicRoutes);
 await app.register(adminRoutes);
 await app.register(wsRoutes);
+
+const distCandidates = [
+  join(process.cwd(), "apps/web/dist"),
+  fileURLToPath(new URL("../../web/dist", import.meta.url)),
+];
+const webDist = distCandidates.find((dir) => existsSync(dir));
+if (webDist) {
+  await app.register(fastifyStatic, {
+    root: webDist,
+    prefix: "/",
+    wildcard: false,
+  });
+
+  app.setNotFoundHandler((req, reply) => {
+    if (req.raw.url?.startsWith("/api") || req.raw.url?.startsWith("/ws")) {
+      reply.code(404).send({ error: "Ruta no encontrada" });
+    } else {
+      reply.sendFile("index.html");
+    }
+  });
+}
 
 app.setErrorHandler((err: Error & { statusCode?: number }, _req, reply) => {
   app.log.error(err);

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel --filter ./apps/* dev",
     "build": "pnpm -r build",
+    "start": "node apps/api/dist/server.js",
     "typecheck": "pnpm -r typecheck",
     "db": "docker compose -f docker-compose.dev.yml up -d"
   },

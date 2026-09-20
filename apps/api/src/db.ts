@@ -6,6 +6,7 @@ export const sql = postgres(env.databaseUrl, {
   idle_timeout: 30,
   connect_timeout: 10,
   transform: postgres.camel,
+  ssl: env.isProd && !env.databaseUrl.includes("localhost") && !env.databaseUrl.includes("@db:") ? { rejectUnauthorized: false } : false,
 });
 
 export async function migrate() {
