@@ -57,11 +57,26 @@ function cleanText(s: string): string {
   return out.replace(/\s+/g, " ").trim();
 }
 
+async function retryQuery<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err) {
+      attempt++;
+      if (attempt >= retries) throw err;
+      await new Promise((r) => setTimeout(r, 40 * attempt + Math.random() * 50));
+    }
+  }
+}
+
 export async function publicRoutes(app: FastifyInstance) {
   app.get("/api/health", async () => ({ ok: true }));
 
-  app.get("/api/state", async () => {
-    const { snapshot } = getSnapshot();
+  app.get("/api/state", async (_req, reply) => {
+    const { snapshot, version } = getSnapshot();
+    reply.header("cache-control", "public, max-age=1, stale-while-revalidate=2");
+    reply.header("etag", `"s${version}"`);
     return { stations: snapshot.stations, count: snapshot.count };
   });
 
@@ -75,9 +90,9 @@ export async function publicRoutes(app: FastifyInstance) {
         if (rows[0]) return toParticipant(rows[0]);
       }
       const token = randomBytes(24).toString("hex");
-      const rows = await sql<ParticipantRow[]>`
+      const rows = await retryQuery(() => sql<ParticipantRow[]>`
         insert into participants (token) values (${token}) returning *
-      `;
+      `);
       markDirty();
       reply.code(201);
       return toParticipant(rows[0]);
@@ -128,12 +143,12 @@ export async function publicRoutes(app: FastifyInstance) {
     }
 
     const col = COLUMNS[station.id];
-    const rows = await sql<ParticipantRow[]>`
+    const rows = await retryQuery(() => sql<ParticipantRow[]>`
       update participants
       set ${sql(col)} = ${value}, updated_at = now()
       where token = ${token}
       returning *
-    `;
+    `);
     if (!rows[0]) return reply.code(404).send({ error: "No encontrado" });
     markDirty();
 
@@ -142,11 +157,15 @@ export async function publicRoutes(app: FastifyInstance) {
     return { participant, ...extra };
   });
 
-  app.get("/api/wall", async (_req, reply) => {
+  app.get("/api/wall", async (req, reply) => {
     const { json, version } = getSnapshot();
+    const etag = `"w${version}"`;
+    if (req.headers["if-none-match"] === etag) {
+      return reply.code(304).send();
+    }
     reply.header("content-type", "application/json; charset=utf-8");
-    reply.header("cache-control", "public, max-age=2");
-    reply.header("etag", `"w${version}"`);
+    reply.header("cache-control", "public, max-age=2, stale-while-revalidate=5");
+    reply.header("etag", etag);
     return reply.send(json);
   });
 

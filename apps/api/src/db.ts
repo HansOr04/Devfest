@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { env } from "./env.ts";
 
 export const sql = postgres(env.databaseUrl, {
-  max: Number(process.env.DB_MAX_CONNECTIONS ?? 30),
+  max: Number(process.env.DB_MAX_CONNECTIONS ?? 18),
   idle_timeout: 30,
   connect_timeout: 30,
   transform: postgres.camel,

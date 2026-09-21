@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import websocket from "@fastify/websocket";
+import compress from "@fastify/compress";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -22,6 +23,11 @@ const app = Fastify({
 });
 
 await app.register(cors, { origin: env.corsOrigin === "*" ? true : env.corsOrigin.split(",") });
+await app.register(compress, {
+  global: true,
+  threshold: 1024,
+  encodings: ["gzip", "deflate"],
+});
 
 // Thousands of phones share the venue's NAT, so we never limit by IP alone.
 // Participants are keyed by their token; anonymous traffic gets a generous per-IP bucket.
