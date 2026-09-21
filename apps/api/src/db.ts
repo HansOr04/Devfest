@@ -2,9 +2,9 @@ import postgres from "postgres";
 import { env } from "./env.ts";
 
 export const sql = postgres(env.databaseUrl, {
-  max: 20,
+  max: Number(process.env.DB_MAX_CONNECTIONS ?? 30),
   idle_timeout: 30,
-  connect_timeout: 10,
+  connect_timeout: 30,
   transform: postgres.camel,
   ssl: env.isProd && !env.databaseUrl.includes("localhost") && !env.databaseUrl.includes("@db:") ? { rejectUnauthorized: false } : false,
 });
@@ -28,6 +28,8 @@ export async function migrate() {
   `;
   await sql`create index if not exists participants_seq_idx on participants (seq)`;
   await sql`create index if not exists participants_language_idx on participants (language)`;
+  await sql`create index if not exists participants_token_idx on participants (token)`;
+  await sql`create index if not exists participants_visible_seq_idx on participants (seq) where hidden = false`;
   await sql`
     create table if not exists stations (
       id text primary key,

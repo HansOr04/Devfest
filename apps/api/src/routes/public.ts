@@ -67,7 +67,7 @@ export async function publicRoutes(app: FastifyInstance) {
 
   app.post(
     "/api/join",
-    { config: { rateLimit: { max: 3000, timeWindow: "1 minute" } } },
+    { config: { rateLimit: { max: 20000, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const existing = tokenOf(req);
       if (existing) {
@@ -104,7 +104,9 @@ export async function publicRoutes(app: FastifyInstance) {
     const parsed = answerBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Respuesta inválida" });
 
-    const stations = await loadStations();
+    const stations = getSnapshot().snapshot.stations.length > 0
+      ? getSnapshot().snapshot.stations
+      : await loadStations();
     if (!stations.find((s) => s.id === station.id)?.open) {
       return reply.code(423).send({ error: "Esta estación todavía no está abierta" });
     }

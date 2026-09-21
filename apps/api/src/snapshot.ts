@@ -39,37 +39,44 @@ export async function loadStations(): Promise<StationState[]> {
   });
 }
 
+let rebuilding = false;
+
 export async function rebuild(force = false) {
-  if (!dirty && !force) return false;
-  dirty = false;
-  const [rows, stations, maxRow] = await Promise.all([
-    sql<{ seq: string; language: string | null; year: number | null; p: number }[]>`
-      select seq, language, year,
-        (language is not null)::int + (year is not null)::int + (built is not null)::int
-        + (broke is not null)::int + (advice is not null)::int as p
-      from participants
-      where hidden = false
-      order by seq
-    `,
-    loadStations(),
-    sql<{ max: string | null }[]>`select max(seq)::text as max from participants`,
-  ]);
-  const cards: WallCard[] = rows.map((r) => {
-    const c: WallCard = { s: Number(r.seq), p: Number(r.p) };
-    if (r.language) c.l = r.language;
-    if (r.year) c.y = r.year;
-    return c;
-  });
-  current = {
-    count: Number(maxRow[0]?.max ?? 0),
-    cards,
-    stations,
-    generatedAt: new Date().toISOString(),
-  };
-  serialized = JSON.stringify(current);
-  version++;
-  for (const fn of listeners) fn(serialized, version);
-  return true;
+  if ((!dirty && !force) || rebuilding) return false;
+  rebuilding = true;
+  try {
+    dirty = false;
+    const [rows, stations, maxRow] = await Promise.all([
+      sql<{ seq: string; language: string | null; year: number | null; p: number }[]>`
+        select seq, language, year,
+          (language is not null)::int + (year is not null)::int + (built is not null)::int
+          + (broke is not null)::int + (advice is not null)::int as p
+        from participants
+        where hidden = false
+        order by seq
+      `,
+      loadStations(),
+      sql<{ max: string | null }[]>`select max(seq)::text as max from participants`,
+    ]);
+    const cards: WallCard[] = rows.map((r) => {
+      const c: WallCard = { s: Number(r.seq), p: Number(r.p) };
+      if (r.language) c.l = r.language;
+      if (r.year) c.y = r.year;
+      return c;
+    });
+    current = {
+      count: Number(maxRow[0]?.max ?? 0),
+      cards,
+      stations,
+      generatedAt: new Date().toISOString(),
+    };
+    serialized = JSON.stringify(current);
+    version++;
+    for (const fn of listeners) fn(serialized, version);
+    return true;
+  } finally {
+    rebuilding = false;
+  }
 }
 
 export function startSnapshotLoop() {

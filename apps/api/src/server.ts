@@ -17,6 +17,8 @@ const app = Fastify({
   logger: env.isProd ? { level: "info" } : { level: "info", transport: undefined },
   trustProxy: true,
   bodyLimit: 16 * 1024,
+  connectionTimeout: 65000,
+  keepAliveTimeout: 65000,
 });
 
 await app.register(cors, { origin: env.corsOrigin === "*" ? true : env.corsOrigin.split(",") });
@@ -25,7 +27,7 @@ await app.register(cors, { origin: env.corsOrigin === "*" ? true : env.corsOrigi
 // Participants are keyed by their token; anonymous traffic gets a generous per-IP bucket.
 await app.register(rateLimit, {
   global: true,
-  max: 240,
+  max: 1200,
   timeWindow: "1 minute",
   keyGenerator: (req) => {
     const h = req.headers["x-participant-token"];
@@ -79,6 +81,10 @@ const shutdown = async () => {
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+
+app.server.keepAliveTimeout = 65000;
+app.server.headersTimeout = 66000;
+app.server.requestTimeout = 60000;
 
 await app.listen({ port: env.port, host: env.host });
 app.log.info(`API lista en http://${env.host}:${env.port}`);
