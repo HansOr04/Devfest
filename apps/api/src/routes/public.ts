@@ -158,7 +158,7 @@ export async function publicRoutes(app: FastifyInstance) {
   });
 
   app.get("/api/wall", async (req, reply) => {
-    const { json, version } = getSnapshot();
+    const { json, gzipped, version } = getSnapshot();
     const etag = `"w${version}"`;
     if (req.headers["if-none-match"] === etag) {
       return reply.code(304).send();
@@ -166,6 +166,12 @@ export async function publicRoutes(app: FastifyInstance) {
     reply.header("content-type", "application/json; charset=utf-8");
     reply.header("cache-control", "public, max-age=2, stale-while-revalidate=5");
     reply.header("etag", etag);
+
+    const acceptEncoding = (req.headers["accept-encoding"] as string | undefined) || "";
+    if (acceptEncoding.includes("gzip")) {
+      reply.header("content-encoding", "gzip");
+      return reply.send(gzipped);
+    }
     return reply.send(json);
   });
 

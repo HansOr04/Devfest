@@ -1,1 +1,1 @@
-web: node apps/api/dist/server.js
+web: node --max-old-space-size=384 apps/api/dist/server.js

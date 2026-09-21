@@ -1,5 +1,6 @@
 import type { StationState, WallCard, WallSnapshot } from "@devfest/shared";
 import { STATION_IDS } from "@devfest/shared";
+import { gzipSync } from "node:zlib";
 import { sql } from "./db.ts";
 import { env } from "./env.ts";
 
@@ -13,6 +14,7 @@ import { env } from "./env.ts";
 let dirty = true;
 let current: WallSnapshot = { count: 0, cards: [], stations: [], generatedAt: new Date(0).toISOString() };
 let serialized = JSON.stringify(current);
+let gzipped = gzipSync(Buffer.from(serialized));
 let version = 0;
 const listeners = new Set<(json: string, version: number) => void>();
 
@@ -21,7 +23,7 @@ export function markDirty() {
 }
 
 export function getSnapshot() {
-  return { snapshot: current, json: serialized, version };
+  return { snapshot: current, json: serialized, gzipped, version };
 }
 
 export function onSnapshot(fn: (json: string, version: number) => void) {
@@ -71,6 +73,7 @@ export async function rebuild(force = false) {
       generatedAt: new Date().toISOString(),
     };
     serialized = JSON.stringify(current);
+    gzipped = gzipSync(Buffer.from(serialized));
     version++;
     for (const fn of listeners) fn(serialized, version);
     return true;
