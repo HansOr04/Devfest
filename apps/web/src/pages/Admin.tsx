@@ -83,12 +83,25 @@ export default function Admin() {
             <p className="text-xs uppercase tracking-[0.25em] text-mist">DevFest</p>
             <h1 className="pixel mt-1 text-base">panel del escenario</h1>
           </div>
-          <a
-            className="text-sm text-gblue underline"
-            href={`/api/admin/export.csv?token=${encodeURIComponent(getAdminToken() ?? "")}`}
-          >
-            Exportar CSV
-          </a>
+          <div className="flex items-center gap-4">
+            <button
+              className="text-sm text-gred hover:underline"
+              onClick={async () => {
+                if (window.confirm("¿Estás seguro de reiniciar todo el muro y borrar todos los participantes a cero?")) {
+                  await api.admin.reset().catch((e) => setError(e.message));
+                  await refresh();
+                }
+              }}
+            >
+              Reiniciar Muro
+            </button>
+            <a
+              className="text-sm text-gblue underline"
+              href={`/api/admin/export.csv?token=${encodeURIComponent(getAdminToken() ?? "")}`}
+            >
+              Exportar CSV
+            </a>
+          </div>
         </header>
 
         {error ? <p className="rounded-lg bg-gred/15 px-3 py-2 text-sm text-gred">{error}</p> : null}

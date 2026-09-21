@@ -140,5 +140,6 @@ export const api = {
         {},
         true,
       ),
+    reset: () => request<{ ok: boolean; message: string }>("/api/admin/reset", { method: "POST" }, true),
   },
 };

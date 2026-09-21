@@ -126,4 +126,13 @@ export async function adminRoutes(app: FastifyInstance) {
     reply.header("content-disposition", 'attachment; filename="mi-primer-proyecto.csv"');
     return `${header}\n${body}\n`;
   });
+
+  /** Reset everything: delete all participants, reset sequences, close stations and clear wall snapshot. */
+  app.post("/api/admin/reset", async () => {
+    await sql`truncate participants restart identity`;
+    await sql`update stations set open = false, opened_at = null`;
+    markDirty();
+    await rebuild(true);
+    return { ok: true, message: "Muro y participantes reseteados a cero exitosamente" };
+  });
 }
